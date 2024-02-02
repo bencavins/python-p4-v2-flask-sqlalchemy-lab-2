@@ -1,5 +1,6 @@
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import MetaData
+from sqlalchemy.orm import validates
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy_serializer import SerializerMixin
 
@@ -11,8 +12,10 @@ metadata = MetaData(naming_convention={
 db = SQLAlchemy(metadata=metadata)
 
 
-class Customer(db.Model):
+class Customer(db.Model, SerializerMixin):
     __tablename__ = 'customers'
+
+    serialize_rules = ['-reviews.customer']
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String)
@@ -23,8 +26,10 @@ class Customer(db.Model):
         return f'<Customer {self.id}, {self.name}>'
 
 
-class Item(db.Model):
+class Item(db.Model, SerializerMixin):
     __tablename__ = 'items'
+
+    serialize_rules = ['-reviews.item']
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String)
@@ -35,8 +40,10 @@ class Item(db.Model):
     def __repr__(self):
         return f'<Item {self.id}, {self.name}, {self.price}>'
 
-class Review(db.Model):
+class Review(db.Model, SerializerMixin):
     __tablename__ = 'reviews'
+
+    serialize_rules = ['-customer.reviews', '-item.reviews']
 
     id = db.Column(db.Integer, primary_key=True)
     comment = db.Column(db.String)
@@ -45,6 +52,12 @@ class Review(db.Model):
 
     customer = db.relationship('Customer', back_populates='reviews')
     item = db.relationship('Item', back_populates='reviews')
+
+    @validates('customer_id')
+    def validates_customer_id(self, key, new_id):
+        if new_id is None:
+            raise ValueError('customer_id is required')
+        return new_id
 
     def __repr__(self):
         return f'<Review {self.id}, {self.comment}, {self.customer_id} {self.item_id}>'
